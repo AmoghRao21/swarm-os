@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/swarmos/core/internal/events"
+	"github.com/swarm-os/core/internal/events"
 )
 
 func main() {
