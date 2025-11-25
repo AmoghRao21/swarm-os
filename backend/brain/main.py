@@ -1,28 +1,29 @@
-from fastapi import FastAPI
+import asyncio
+import logging
 from contextlib import asynccontextmanager
-import uvicorn
-import redis.asyncio as redis
-import os
+from fastapi import FastAPI
+from internal.consumer import RedisConsumer
 
-redis_client = None
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("swarm.main")
+
+consumer = RedisConsumer()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_client = redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+    logger.info("🚀 Swarm Brain booting up...")
+    await consumer.connect()
+    
+    task = asyncio.create_task(consumer.listen())
+    
     yield
-    await redis_client.close()
+
+    logger.info("🛑 Swarm Brain shutting down...")
+    await consumer.close()
+    task.cancel()
 
 app = FastAPI(title="SwarmOS Brain", version="1.0.0", lifespan=lifespan)
 
 @app.get("/health")
 async def health_check():
     return {"status": "operational", "service": "swarm-brain"}
-
-@app.post("/agent/dispatch")
-async def dispatch_agent(payload: dict):
-    return {"job_id": "pending_implementation", "status": "queued"}
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
