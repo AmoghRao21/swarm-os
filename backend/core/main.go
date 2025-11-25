@@ -9,10 +9,22 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/AmoghRao21/swarm-os/core/internal/events"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	redisUrl := os.Getenv("REDIS_URL")
+	if redisUrl == "" {
+		redisUrl = "localhost:6379"
+	}
+
+	eventManager, err := events.NewEventManager(redisUrl)
+	if err != nil {
+		log.Fatalf("Fatal: Failed to initialize event infrastructure: %v", err)
+	}
+	defer eventManager.Close()
+
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(gin.Logger())
@@ -25,6 +37,24 @@ func main() {
 				"service":   "swarm-core",
 				"timestamp": time.Now().Unix(),
 			})
+		})
+
+		api.POST("/job", func(c *gin.Context) {
+			var jobData map[string]interface{}
+			if err := c.BindJSON(&jobData); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
+				return
+			}
+
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := eventManager.PublishEvent(ctx, "job_queue", jobData); err != nil {
+					log.Printf("Error publishing job: %v", err)
+				}
+			}()
+
+			c.JSON(http.StatusAccepted, gin.H{"status": "queued"})
 		})
 	}
 
