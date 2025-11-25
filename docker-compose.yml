@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: swarm_db
+    restart: always
+    environment:
+      POSTGRES_USER: swarm_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_dev_password}
+      POSTGRES_DB: swarm_os
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - swarm_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U swarm_admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: swarm_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - swarm_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    container_name: swarm_storage
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-swarm_storage_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-secure_storage_key}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - swarm_network
+
+  swarm-core:
+    build: 
+      context: ./backend/core
+      dockerfile: Dockerfile
+    container_name: swarm_core_api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://swarm_admin:secure_dev_password@postgres:5432/swarm_os?sslmode=disable
+      - REDIS_URL=redis:6379
+      - BRAIN_SERVICE_URL=http://swarm-brain:8000
+    networks:
+      - swarm_network
+
+  swarm-brain:
+    build:
+      context: ./backend/brain
+      dockerfile: Dockerfile
+    container_name: swarm_brain_ai
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://swarm_admin:secure_dev_password@postgres:5432/swarm_os
+    networks:
+      - swarm_network
+
+networks:
+  swarm_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
