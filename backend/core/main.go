@@ -13,6 +13,7 @@ import (
 	"github.com/AmoghRao21/swarm-os/core/internal/database"
 	"github.com/AmoghRao21/swarm-os/core/internal/events"
 	"github.com/AmoghRao21/swarm-os/core/internal/models"
+	"github.com/AmoghRao21/swarm-os/core/internal/worker"
 	"github.com/gin-gonic/gin"
 )
 
@@ -37,6 +38,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Fatal: Failed to initialize database: %v", err)
 	}
+
+	// 3. Start Background Worker (The Listener)
+	bgWorker := worker.NewJobWorker(db, eventManager)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
+
+	// Run worker in a goroutine so it doesn't block the API
+	go bgWorker.Start(ctx)
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -73,7 +82,6 @@ func main() {
 			job := models.Job{
 				Task:   request.Task,
 				Status: models.JobStatusQueued,
-				// FIX: Initialize with valid empty JSON object "{}" instead of ""
 				Result: "{}",
 			}
 
@@ -92,9 +100,9 @@ func main() {
 
 			// C. Dispatch to Redis
 			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				pubCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := eventManager.PublishEvent(ctx, "job_queue", payload); err != nil {
+				if err := eventManager.PublishEvent(pubCtx, "job_queue", payload); err != nil {
 					log.Printf("Error publishing job %s: %v", job.ID, err)
 				}
 			}()
@@ -121,9 +129,10 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	cancelCtx() // Stop the worker gracefully
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatal("Server forced to shutdown: ", err)
 	}
 }
