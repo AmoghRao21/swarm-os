@@ -5,10 +5,11 @@ services:
     image: postgres:16-alpine
     container_name: swarm_db
     restart: always
+    env_file: .env
     environment:
-      POSTGRES_USER: swarm_admin
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_dev_password}
-      POSTGRES_DB: swarm_os
+      POSTGRES_USER: ${POSTGRES_USER:-swarm_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-swarm_os}
     ports:
       - "5432:5432"
     volumes:
@@ -16,8 +17,7 @@ services:
     networks:
       - swarm_network
     healthcheck:
-      # FIX: Explicitly check the 'swarm_os' database
-      test: ["CMD-SHELL", "pg_isready -U swarm_admin -d swarm_os"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-swarm_admin} -d ${POSTGRES_DB:-swarm_os}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -67,8 +67,9 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    env_file: .env
     environment:
-      - DATABASE_URL=postgres://swarm_admin:secure_dev_password@postgres:5432/swarm_os?sslmode=disable
+      - DATABASE_URL=postgres://${POSTGRES_USER:-swarm_admin}:${POSTGRES_PASSWORD:-secure_dev_password}@postgres:5432/${POSTGRES_DB:-swarm_os}?sslmode=disable
       - REDIS_URL=redis:6379
       - BRAIN_SERVICE_URL=http://swarm-brain:8000
     networks:
@@ -87,11 +88,29 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    # FIX: Explicitly load the file AND map the specific variable
+    env_file: 
+      - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://swarm_admin:secure_dev_password@postgres:5432/swarm_os
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-swarm_admin}:${POSTGRES_PASSWORD:-secure_dev_password}@postgres:5432/${POSTGRES_DB:-swarm_os}
+      # This forces the container to look for the key in the env_file
+      - GROQ_API_KEY=${GROQ_API_KEY}
     networks:
       - swarm_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: swarm_console
+    restart: always
+    ports:
+      - "3000:3000"
+    networks:
+      - swarm_network
+    depends_on:
+      - swarm-core
 
 networks:
   swarm_network:

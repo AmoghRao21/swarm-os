@@ -12,6 +12,8 @@ require gorm.io/driver/postgres v1.5.7
 
 require gorm.io/gorm v1.25.7
 
+require github.com/gorilla/websocket v1.5.3
+
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

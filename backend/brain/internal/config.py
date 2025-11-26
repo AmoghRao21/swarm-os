@@ -1,3 +1,4 @@
+import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -5,7 +6,20 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://swarm_admin:secure_dev_password@localhost:5432/swarm_os"
     QUEUE_NAME: str = "job_queue"
     
-    class Config:
-        env_file = ".env"
+    GROQ_API_KEY: str
 
-settings = Settings()
+    MODEL_ARCHITECT: str = "llama-3.3-70b-versatile"
+    MODEL_CODER_BACKEND: str = "llama-3.3-70b-versatile" 
+    MODEL_CODER_FRONTEND: str = "llama-3.3-70b-versatile" 
+    
+    class Config:
+        case_sensitive = True
+
+try:
+    settings = Settings()
+    key_sample = settings.GROQ_API_KEY[:4] + "..." + settings.GROQ_API_KEY[-4:]
+    print(f"✅ CONFIG LOADED. AI Engine Active. Key: {key_sample}")
+except Exception as e:
+    print("❌ CRITICAL: Missing Environment Variables.")
+    print(e)
+    raise e

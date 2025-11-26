@@ -1,0 +1,35 @@
+:root {
+  /* Fonts */
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Color Palette - Deep Space */
+  --bg-core: #050505;
+  --bg-card: #0a0a0a;
+  --bg-hover: #111111;
+  
+  --border-subtle: #222;
+  --border-active: #444;
+
+  --text-primary: #ededed;
+  --text-secondary: #888;
+  
+  /* Brand Accents */
+  --accent-blue: #3b82f6;
+  --accent-pink: #ec4899;
+  --accent-emerald: #10b981;
+  --accent-purple: #8b5cf6;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background-color: var(--bg-core);
+  color: var(--text-primary);
+  font-family: var(--font-inter);
+  min-height: 100vh;
+}

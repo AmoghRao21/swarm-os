@@ -1,0 +1,308 @@
+/* --- Layout --- */
+.main {
+  min-height: 100vh;
+  padding: 4rem 2rem;
+  background: radial-gradient(circle at 50% 0%, #111 0%, var(--bg-core) 40%);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* --- Header --- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 4rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.title {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.brandHighlight {
+  color: var(--accent-emerald);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+}
+
+.statusPanel {
+  text-align: right;
+}
+
+.systemOnline {
+  font-family: var(--font-mono);
+  color: var(--accent-emerald);
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ping {
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-emerald);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--accent-emerald);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* --- Grid --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 2rem;
+}
+
+/* --- Card Styles --- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 2rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  background: var(--bg-hover);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+/* Dynamic Borders on Hover */
+.card[data-color="blue"]:hover { border-color: rgba(59, 130, 246, 0.5); }
+.card[data-color="pink"]:hover { border-color: rgba(236, 72, 153, 0.5); }
+.card[data-color="emerald"]:hover { border-color: rgba(16, 185, 129, 0.5); }
+.card[data-color="purple"]:hover { border-color: rgba(139, 92, 246, 0.5); }
+
+/* Selection State */
+.card.selected {
+  background: #0f0f0f;
+  box-shadow: 0 0 0 2px var(--border-active);
+}
+.card.selected[data-color="blue"] { box-shadow: 0 0 0 2px var(--accent-blue); }
+.card.selected[data-color="pink"] { box-shadow: 0 0 0 2px var(--accent-pink); }
+.card.selected[data-color="emerald"] { box-shadow: 0 0 0 2px var(--accent-emerald); }
+.card.selected[data-color="purple"] { box-shadow: 0 0 0 2px var(--accent-purple); }
+
+/* Card Content */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.companyName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  color: #aaa;
+}
+
+.price {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.description {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  height: 3rem; /* Fixed height for alignment */
+}
+
+/* Team Footer */
+.footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #555;
+  font-weight: 600;
+}
+
+.agentStack {
+  display: flex;
+}
+
+.agent {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 2px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: -10px;
+  font-size: 1.2rem;
+  transition: transform 0.2s;
+}
+
+.agent:hover {
+  transform: scale(1.2) translateY(-4px);
+  z-index: 10;
+  border-color: #444;
+}
+
+/* --- Briefing Modal --- */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 600px;
+  background: #0a0a0a;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  position: relative;
+  transform: scale(0.95);
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scaleUp {
+  to { transform: scale(1); }
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #222;
+  padding-bottom: 1rem;
+}
+
+.modalTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: color 0.2s;
+}
+
+.modalClose:hover { color: #fff; }
+
+.inputLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: #888;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.missionInput {
+  width: 100%;
+  height: 150px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 1rem;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  resize: none;
+  margin-bottom: 2rem;
+  transition: border-color 0.2s;
+}
+
+.missionInput:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  background: #151515;
+}
+
+.deployButton {
+  width: 100%;
+  padding: 1rem;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deployButton:hover {
+  background: #e5e5e5;
+  transform: translateY(-1px);
+}
+
+.deployButton:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  transform: none;
+}

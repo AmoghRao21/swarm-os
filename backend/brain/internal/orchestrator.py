@@ -5,20 +5,17 @@ from internal.broadcaster import broadcaster
 logger = logging.getLogger("swarm.brain")
 
 class AgentOrchestrator:
-    """
-    Manages the lifecycle of AI agents using LangGraph.
-    """
     async def process_job(self, job_data: dict):
         job_id = job_data.get("job_id", "unknown")
         task = job_data.get("task", "")
+        swarm_id = job_data.get("swarm_id", "default") 
         
-        logger.info(f"🧠 Brain received Job [{job_id}]. Invoking Swarm...")
+        logger.info(f"🧠 Brain received Job [{job_id}] for Swarm [{swarm_id}]. Invoking...")
 
-        # 1. Notify Core that we have started
         await broadcaster.broadcast_job_update(job_id, "processing")
 
-        # Initialize the State
         initial_state = {
+            "swarm_id": swarm_id,
             "task": task,
             "messages": [],
             "plan": [],
@@ -27,14 +24,11 @@ class AgentOrchestrator:
             "status": "started"
         }
 
-        # Run the Graph (Invoke is synchronous in this version, wrapping in future if needed)
         try:
             final_state = await runner.ainvoke(initial_state)
-            
             status = final_state.get("status", "completed")
-            logger.info(f"✅ Job [{job_id}] finished. Final Status: {status}")
+            logger.info(f"✅ Job [{job_id}] finished.")
             
-            # 2. Notify Core of the result
             await broadcaster.broadcast_job_update(job_id, "completed", final_state)
             return final_state
             

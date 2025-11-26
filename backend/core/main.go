@@ -14,6 +14,7 @@ import (
 	"github.com/AmoghRao21/swarm-os/core/internal/events"
 	"github.com/AmoghRao21/swarm-os/core/internal/models"
 	"github.com/AmoghRao21/swarm-os/core/internal/worker"
+	"github.com/AmoghRao21/swarm-os/core/internal/ws"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,12 +40,14 @@ func main() {
 		log.Fatalf("Fatal: Failed to initialize database: %v", err)
 	}
 
-	// 3. Start Background Worker (The Listener)
-	bgWorker := worker.NewJobWorker(db, eventManager)
+	// 3. Initialize WebSocket Hub
+	wsHub := ws.NewHub()
+	go wsHub.Run()
+
+	// 4. Start Background Worker
+	bgWorker := worker.NewJobWorker(db, eventManager, wsHub)
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	defer cancelCtx()
-
-	// Run worker in a goroutine so it doesn't block the API
 	go bgWorker.Start(ctx)
 
 	router := gin.New()
@@ -53,32 +56,48 @@ func main() {
 
 	api := router.Group("/api/v1")
 	{
-		api.GET("/health", func(c *gin.Context) {
-			sqlDB, _ := db.DB()
-			err := sqlDB.Ping()
-			status := "operational"
-			if err != nil {
-				status = "degraded"
-			}
+		// WebSocket Endpoint
+		api.GET("/ws", wsHub.HandleWS)
 
-			c.JSON(http.StatusOK, gin.H{
-				"status":    status,
-				"service":   "swarm-core",
-				"timestamp": time.Now().Unix(),
-			})
+		api.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{"status": "operational"})
 		})
 
-		api.POST("/job", func(c *gin.Context) {
-			var request struct {
-				Task string `json:"task" binding:"required"`
-			}
+		// NEW: Get Job Status (Hydration)
+		api.GET("/job/:id", func(c *gin.Context) {
+			id := c.Param("id")
+			var job models.Job
 
-			if err := c.ShouldBindJSON(&request); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "task is required"})
+			if err := db.First(&job, "id = ?", id).Error; err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "job not found"})
 				return
 			}
 
-			// A. Create Job in Postgres
+			// Parse the JSONB result string back into an object
+			var resultData map[string]interface{}
+			if job.Result != "" {
+				json.Unmarshal([]byte(job.Result), &resultData)
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"job_id": job.ID,
+				"status": job.Status,
+				"data":   resultData,
+			})
+		})
+
+		// Create Job
+		api.POST("/job", func(c *gin.Context) {
+			var request struct {
+				Task    string `json:"task" binding:"required"`
+				SwarmID string `json:"swarm_id" binding:"required"`
+			}
+
+			if err := c.ShouldBindJSON(&request); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "task and swarm_id are required"})
+				return
+			}
+
 			job := models.Job{
 				Task:   request.Task,
 				Status: models.JobStatusQueued,
@@ -86,25 +105,21 @@ func main() {
 			}
 
 			if result := db.Create(&job); result.Error != nil {
-				log.Printf("Database Error: %v", result.Error)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist job"})
 				return
 			}
 
-			// B. Prepare Payload for Brain
 			payloadData := map[string]interface{}{
-				"job_id": job.ID.String(),
-				"task":   job.Task,
+				"job_id":   job.ID.String(),
+				"task":     job.Task,
+				"swarm_id": request.SwarmID,
 			}
 			payload, _ := json.Marshal(payloadData)
 
-			// C. Dispatch to Redis
 			go func() {
 				pubCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				if err := eventManager.PublishEvent(pubCtx, "job_queue", payload); err != nil {
-					log.Printf("Error publishing job %s: %v", job.ID, err)
-				}
+				eventManager.PublishEvent(pubCtx, "job_queue", payload)
 			}()
 
 			c.JSON(http.StatusAccepted, gin.H{
@@ -129,10 +144,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	cancelCtx() // Stop the worker gracefully
+	cancelCtx()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
-	}
+	srv.Shutdown(shutdownCtx)
 }

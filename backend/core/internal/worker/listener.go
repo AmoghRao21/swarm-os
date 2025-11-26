@@ -7,12 +7,14 @@ import (
 
 	"github.com/AmoghRao21/swarm-os/core/internal/events"
 	"github.com/AmoghRao21/swarm-os/core/internal/models"
+	"github.com/AmoghRao21/swarm-os/core/internal/ws"
 	"gorm.io/gorm"
 )
 
 type JobWorker struct {
 	db           *gorm.DB
 	eventManager *events.EventManager
+	wsHub        *ws.Hub // Reference to the WebSocket Hub
 }
 
 type JobUpdatePayload struct {
@@ -21,10 +23,12 @@ type JobUpdatePayload struct {
 	Result map[string]interface{} `json:"result"`
 }
 
-func NewJobWorker(db *gorm.DB, em *events.EventManager) *JobWorker {
+// NewJobWorker initializes the worker with DB, Redis, and WebSocket dependencies
+func NewJobWorker(db *gorm.DB, em *events.EventManager, hub *ws.Hub) *JobWorker {
 	return &JobWorker{
 		db:           db,
 		eventManager: em,
+		wsHub:        hub,
 	}
 }
 
@@ -53,10 +57,10 @@ func (w *JobWorker) handleMessage(payloadStr string) {
 		return
 	}
 
-	// Convert Result map to JSON string for Postgres storage
+	// 1. Update Database (Persistence)
 	resultBytes, _ := json.Marshal(payload.Result)
 
-	// Update the Database
+	// We use Updates to only change specific fields
 	result := w.db.Model(&models.Job{}).
 		Where("id = ?", payload.JobID).
 		Updates(map[string]interface{}{
@@ -65,8 +69,20 @@ func (w *JobWorker) handleMessage(payloadStr string) {
 		})
 
 	if result.Error != nil {
-		log.Printf("❌ Failed to update Job [%s]: %v", payload.JobID, result.Error)
+		log.Printf("❌ Failed to update DB for Job [%s]: %v", payload.JobID, result.Error)
 	} else {
 		log.Printf("💾 Database updated: Job [%s] -> %s", payload.JobID, payload.Status)
 	}
+
+	// 2. Broadcast to WebSocket (Real-Time UI Update)
+	// We structure this message specifically for the Frontend to consume
+	updateMsg := map[string]interface{}{
+		"type":   "JOB_UPDATE",
+		"job_id": payload.JobID,
+		"status": payload.Status,
+		"data":   payload.Result,
+	}
+
+	w.wsHub.BroadcastToClients(updateMsg)
+	log.Printf("📡 WebSocket broadcast sent for Job [%s]", payload.JobID)
 }
